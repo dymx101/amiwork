@@ -22,7 +22,6 @@ def get_simple_url(long_url):
 failures = list()
 admin_email = 'krishnancmf8@gmail.com'
 try:
-
 	dbi = DatabaseInterface.get_shared_instance()
 
 	cursor = dbi.execute("SELECT feed_id,url,category_id FROM news_feeds JOIN first_test_feed_category USING(feed_id) ",None)
@@ -62,7 +61,7 @@ try:
 	
 	''' Prepare and send the report '''
 	if len(failures)==0:
-		subject = "Feed scrape was completed Succesfully ( 0 failures )"
+		subject = 'Cron job success: Feed scrape was completed Succesfully ( 0 failures )'
 		report = "Dance dance :D"
 	else:
 		subject = ("Feed scrape (FAILURES!) was completed with %s failures" %  (len(failures),))
@@ -74,10 +73,9 @@ try:
 			
 	dbi.autocommit(True)
 	
-	
 except Exception as e:
 	print "\n------ERROOOOOOOOOOOOOOOR!!!---------\n"
-	print e.__doc__ +"\n"+ str(e.message )
+	print str(e.__doc__) +"\n"+ str(e.message )
 	subject='COMPLETE FAILURE OF FEEDSCRAPE!'
-	report = e.__doc__ +"\n"+ e.message 
+	report = str(e.__doc__) +"\n"+ str(e.message)
 	mail_text(admin_email, subject, report )

@@ -1,5 +1,7 @@
 from news.contentranking.classes.socialscoreupdater import SocialScoreUpdater as SSU
 from mailsimple import mail_text
+import time
+
 admin_email = 'krishnancmf8@gmail.com'
 #try:
 if True:
@@ -10,13 +12,13 @@ if True:
 	ssu.update_scores()
 	ssu.build_new_active_set()
 	ssu.rotate_active_set()
-
+	
 	ssu.update_permanent_scores()
 	ssu.update_statistics()
 	
 	''' Let me know? '''
-	subject='Score update completed successfully!'
-	report = "YAYAYAYAYAY!"
+	subject='Cron job success: Score update completed successfully!'
+	report = "Completed successfully at !"+ str( int(time.time()) )
 	mail_text(admin_email, subject, report )
 #
 '''

@@ -42,11 +42,31 @@ class SocialScoreUpdater:
 	''' Static methods  that aren't related to the update '''
 	@staticmethod
 	def add_new_story(story_id):
-		''' Adds a story to both the active and global set '''
+		''' Adds a story to both the active and global set. Responsible for the part that gives newer statistics higher weightages '''
 		dbi = DatabaseInterface.get_shared_instance()
 		dbi.autocommit(False)
 		dbi.execute("INSERT INTO news_social_score_all ( story_id, created ) (SELECT story_id,created FROM news_stories WHERE story_id=%s)",(story_id,))
 		dbi.execute("INSERT INTO news_social_score_active ( normalized_score, story_id, raw_score ) (SELECT 0,story_id,0 FROM news_stories WHERE story_id=%s)", (story_id,))
+		cursor = dbi.execute("SELECT feed_id,sum_x,sum_x2,feed_n FROM news_social_score_feed_statistics JOIN news_stories USING(feed_id) WHERE story_id=%s", (story_id,) )
+
+		if cursor.rowcount>0:
+			row = cursor.fetchone()
+			feed_id=row['feed_id']
+			new_n = row['feed_n'] + 1
+			new_x = row['sum_x']
+			new_x2 = row['sum_x2']
+			
+			if new_n > SocialScoreUpdater.stat_update_upper:	
+				'''THIS CAN ACTUALLY HAPPEN DESPITE ME NOT INCREMENTING FEED_N. feed_n < stat_update_upper IS NOT AN INVARIANT! 
+				feed_n is incremented when a story is added to the set'''
+				scale = (float(stat_update_lower)/new_n)
+				new_n = stat_update_lower #(stat_update_lower/new_n)	* new_n
+				new_x =  scale * new_x
+				new_x2 = scale * new_x2
+				dbi.execute("UPDATE news_social_score_feed_statistics SET sum_x=%s, sum_x2=%s, feed_n=%s WHERE feed_id=%s", (new_x,new_x2,new_n,feed_id))
+			else:
+				dbi.execute("UPDATE news_social_score_feed_statistics SET feed_n=feed_n+1 WHERE feed_id = %s",(feed_id,) )
+		
 		dbi.commit()
 		dbi.autocommit(True)
 		
@@ -55,7 +75,7 @@ class SocialScoreUpdater:
 	def __init__(self,update_all=False):
 		''' Set update_all=True if you want to query the whole set. If you just want to query the active set, update_all=False '''
 		self.update_all = update_all		#Update everything or just the active set?
-		
+		self._feed_statistics = None
 	
 	def prepare_update(self):
 		dbi = DatabaseInterface.get_shared_instance()
@@ -216,83 +236,99 @@ class SocialScoreUpdater:
 			cursor = dbi.execute("\
 				UPDATE  ( SELECT story_id FROM news_social_score_update WHERE state='CONSIDERED_IN_SET' LIMIT %s)t_dummy JOIN news_social_score_update t_ud JOIN news_social_score_all t_all\
 				ON t_dummy.story_id = t_ud.story_id  AND t_dummy.story_id=t_all.story_id SET\
-				t_all.reflected_in_stats = IF( (t_ud.new_raw_score  > t_all.peak_score),0,t_all.reflected_in_stats) , \
+				t_all.reflected_in_stats = IF( (t_ud.new_raw_score  > t_all.peak_score AND t_all.reflected_in_stats='UPTODATE'),'OUTDATED',t_all.reflected_in_stats) , \
 				t_ud.state='UPDATED_STORIES', t_all.total_shares=t_ud.total_shares, t_all.raw_score = t_ud.new_raw_score,\
-				t_all.peak_score=GREATEST(t_all.peak_score, t_ud.new_raw_score), t_all.last_update = t_ud.last_update \
+				t_all.prev_peak_score = t_all.peak_score, t_all.peak_score=GREATEST(t_all.peak_score, t_ud.new_raw_score), t_all.last_update = t_ud.last_update \
 				", (SocialScoreUpdater.story_chunk_size,) )
 			rowcount = cursor.rowcount
 			dbi.commit()
-		
 	
+	
+	''' I shall write a doc on this and upload it. There are weird preconditions'''
 	def update_statistics(self):
+		''' PRECONDITION: 
+			All stories in news_social_score_all must be accounted for in feed_n. ie, Even when they were at 0-0 score. 
+			Yes, it makes a small difference to the std_deviation but the simplification in code is worth the negligible loss of precision. If you find a better way, pls implement
+			NOT AN INVARIANT:
+				feed_n is less than stat_update_upper. 
+			Also remember,
+				Std_dev(x) = E[X^2] - E[X]
+			
+		'''
 		dbi = DatabaseInterface.get_shared_instance()
 		rowcount=1
 		#Let's use some python here.
-		cursor = dbi.execute("SELECT feed_id,peak_score FROM news_social_score_all JOIN news_stories USING(story_id) WHERE reflected_in_stats='0'",None)
+		cursor = dbi.execute("SELECT feed_id,peak_score,prev_peak_score,reflected_in_stats FROM news_social_score_all JOIN news_stories USING(story_id) WHERE reflected_in_stats!='UPTODATE'",None)
 		rows = cursor.fetchall()
 		peak_scores = dict()
+		added_x = dict()
+		added_x2 = dict()
+		new_insertions=dict()
 		for row in rows:
-			if row['feed_id'] not in peak_scores:
-				peak_scores[row['feed_id']] = [ row['peak_score'] ]
-			else:
-				peak_scores[row['feed_id']].append(row['peak_score'])
+			feed_id = row['feed_id']
+			peak_score = row['peak_score']
+			prev_peak_score = row['prev_peak_score']
+			if feed_id not in added_x:
+				added_x[feed_id] = 0
+				added_x2[feed_id] = 0
+			added_x[feed_id] += peak_score - prev_peak_score
+			added_x2[feed_id] += (peak_score*peak_score) - (prev_peak_score*prev_peak_score)
+			
+			if row['reflected_in_stats']=='NEVER':
+				if feed_id not in new_insertions:
+					new_insertions[feed_id] = 0
+				new_insertions[feed_id] += 1
+			
+		
 		
 		#Let's get stats for each feed
-		cursor = dbi.execute("SELECT feed_id,feed_n,average_peak_score,std_deviation FROM news_social_score_feed_statistics",None)
-		rows = cursor.fetchall()
-		stats= dict()
-		for row in rows:
-			stats[row['feed_id']] = row
-		
-		
 		dbi.autocommit(False)
-		for feed_id in peak_scores:
-			sum = 0
-			squares = 0	#Sum of squares
-			zerocount=0	#To correct for those where no info is available
-			for pscore in peak_scores[feed_id]:
-				if pscore==0:
-					zerocount+=1
-				sum += pscore
-				squares += pscore * pscore
+		for feed_id in new_insertions:
+			insert_values = (feed_id,new_insertions[feed_id],new_insertions[feed_id])
+			dbi.execute("INSERT INTO news_social_score_feed_statistics (feed_id,feed_n) VALUES(%s,%s) ON DUPLICATE KEY UPDATE feed_n=feed_n+%s", insert_values)
+		for feed_id in added_x:
+			update_params = (added_x[feed_id], added_x2[feed_id], feed_id)
+			dbi.execute('UPDATE news_social_score_feed_statistics SET sum_x=sum_x+%s,sum_x2=sum_x2+%s WHERE feed_id=%s', update_params)
 			
-			''' Std_dev(x) = E[X^2] - E[X] '''
-			
-			added_n = len(peak_scores[feed_id]) - zerocount
-			added_sum = sum
-			added_squares = squares												# I STILL HAVE TO SUBTRACT THE MEAN
-			
-			stat = stats[feed_id]
-			existing_n = stat['feed_n']
-			existing_avg = stat['average_peak_score']
-			existing_sum = existing_n * existing_avg
-			
-			existing_variance = (stat['std_deviation'] * stat['std_deviation']) 	#Actually, it's variance * n
-			existing_squares= (existing_variance + (existing_avg*existing_avg)) * existing_n
-			
-			
-			new_avg = float(added_sum + existing_sum ) / max(1,(added_n + existing_n))
-			new_squares = added_squares + existing_squares
-			
-			new_variance = new_squares/(existing_n+added_n) - (new_avg*new_avg)
-			new_std_dev = math.sqrt( new_variance )
-			
-			
-			new_n = existing_n + added_n
-			#Now we want to be able to adapt to the changing popularity of feeds. We'll reduce the weights of ancient stats so that they don't keep us down.
-			if new_n > SocialScoreUpdater.stat_update_upper:
-				new_n = stat_update_lower
-			update_params = (new_avg,new_std_dev,new_n,feed_id)
-			dbi.execute('UPDATE news_social_score_feed_statistics SET average_peak_score=%s, std_deviation=%s,feed_n=%s WHERE feed_id=%s', update_params)
-			''' Whaaaaaaat? What did i just do? 
-			I need a way for it to quickly adapt to changes in popularity of the site. 
-			So i don't take the actual average of everything. I give some extra weight to more recent scores'''
-			
-		dbi.execute("UPDATE news_social_score_all SET reflected_in_stats='1' WHERE reflected_in_stats='0'",None)
+		dbi.execute("UPDATE news_social_score_all SET reflected_in_stats='UPTODATE' WHERE reflected_in_stats!='UPTODATE'",None)
 		dbi.commit()
 		dbi.autocommit(True)
 		
+		
 	
+	
+	def _load_feed_statistics(self):
+		''' Loads the average_peak_score and std_deviation of all feeds from the database.
+			Stores them as a tuple (average_peak_score,std_deviation) in self._feed_statistics
+			Also computes self._feed_statistics[0] as the (global average_peak_score, global std_deviation ) 
+				WHERE global std_deviation  = (std_dev_sum/no_of_feeds) * global average_peak_score			( DESPITE THE GLOBAL BEING COMPUTABLE. If you did it properly, You'd have retarded standard deviation )
+			Also remember,
+				Std_dev(x) = E[X^2] - E[X]
+			'''
+		self._feed_statistics = dict()
+		dbi = DatabaseInterface.get_shared_instance()
+		dbcursor = dbi.execute("SELECT feed_id, sum_x,sum_x2,feed_n FROM news_social_score_feed_statistics",None)
+		avg_sum = float(0)
+		std_dev_sum = float(0)
+		i = 0
+		for row in dbcursor.fetchall():
+			E_x = float(row['sum_x'])/row['feed_n']
+			E_x2 = float(row['sum_x2'])/row['feed_n']
+			std_dev = math.sqrt(E_x2 - (E_x*E_x))
+			
+			self._feed_statistics[row["feed_id"]] = (E_x,std_dev )
+			avg_sum += E_x
+			std_dev_sum += (float(std_dev)/max(1,E_x))
+			i+=1
+		if i==0:
+			i=1
+		avg_avg = avg_sum / i
+		avg_std_dev = (std_dev_sum/i) * avg_avg
+		if avg_std_dev == 0:
+			avg_std_dev = 1
+		self._feed_statistics[0] = ( avg_avg, avg_std_dev ) #If you hadn't figured it out by now, This is bullshit :p
+		
+		
 	''' -----------------------------------------------
 		---			Score computation functions 	---
 		----------------------------------------------- ''' 
@@ -333,65 +369,12 @@ class SocialScoreUpdater:
 			
 		return (score - feed_avg)/feed_std_dev
 	
-	
-	
-	def _load_feed_statistics(self):
-		''' Loads the average_peak_score and std_deviation of all feeds from the database.
-			Stores them as a tuple (average_peak_score,std_deviation) in self._feed_statistics
-			Also computes self._feed_statistics[0] as the (global average_peak_score, global std_deviation ) 
-				WHERE global std_deviation  = (std_dev_sum/no_of_feeds) * global average_peak_score
-			'''
-		self._feed_statistics = dict()
-		dbi = DatabaseInterface.get_shared_instance()
-		dbcursor = dbi.execute("SELECT feed_id, average_peak_score, std_deviation FROM news_social_score_feed_statistics",None)
-		avg_sum = float(0)
-		std_dev_sum = float(0)
-		i = 0
-		for row in dbcursor.fetchall():
-			self._feed_statistics[row["feed_id"]] = (row["average_peak_score"],row["std_deviation"] )
-			avg_sum += row["average_peak_score"]
-			std_dev_sum += (float(row["std_deviation"])/max(1,row["average_peak_score"]))
-			i+=1
-		if i==0:
-			i=1
-		avg_avg = avg_sum / i
-		avg_std_dev = (std_dev_sum/i) * avg_avg
-		if avg_std_dev == 0:
-			avg_std_dev = 1
-		self._feed_statistics[0] = ( avg_avg, avg_std_dev ) #If you hadn't figured it out by now, This is bullshit :p
-		
-	
 	def _get_feed_statistics(self,feed_id):
 		''' returns average_peak_score,std_deviation of the feed_id passed. 
 		If we have no stats for the passed feed_ids, the global average is passed '''
 		if self._feed_statistics is None:
 			self._load_feed_statistics()
 			
-		if feed_id not in self._feed_statistics:
-			self._dynamically_add_feed_id_to_statistics(feed_id)
-		
-		stats = self._feed_statistics[feed_id]
+		stats = self._feed_statistics[0]	#Not much we can do, return global stats
 		return stats[0], stats[1]
 	
-	
-	def _dynamically_add_feed_id_to_statistics(self,feed_id):
-		''' If a feed is not found in the stats, We create a new row for it. We set 
-				- average_peak_score to the global average
-				- std_deviation to the global average of standard deviations (?) 
-				- feed_n to 0
-			What this will do is suppress the story from coming up immediately ( unless it's rather popular, of course ) for one update cycle
-			At the end of the update cycle, the stats will get updated and the system will work like normal. This is a rare occurence so don't worry too much about it's effects.
-		'''
-		dbi = DatabaseInterface.get_shared_instance()
-		if self._feed_statistics is None:
-			self._load_feed_statistics()
-		global_average_peak_score = self._feed_statistics[0][0]
-		global_average_std_deviation = self._feed_statistics[0][1]
-		dbi.execute(
-			"INSERT INTO news_social_score_feed_statistics (feed_id, average_peak_score, std_deviation, feed_n) VALUES( %s,%s,%s,%s)", 
-			(feed_id, global_average_peak_score, global_average_std_deviation, 0) 
-		)
-		dbi.commit()
-		
-		self._feed_statistics[feed_id] = (global_average_peak_score,global_average_std_deviation)
-		

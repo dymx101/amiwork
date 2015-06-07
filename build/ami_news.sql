@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Jun 06, 2015 at 02:48 PM
+-- Generation Time: Jun 07, 2015 at 05:08 PM
 -- Server version: 5.6.12-log
 -- PHP Version: 5.4.12
 
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS `first_test_users` (
 --
 
 INSERT INTO `first_test_users` (`user_id`, `email`, `access_token`) VALUES
-(1, 'krishnancmf8@gmail.com', 'CAACEdEose0cBAAlaBonIjcENdBv1XJFJRLEeNpIGJE8Agx4SX7Gp8kgsZAHVSio5NjcifuDO9o3fe9OF2Ohv47dZCGkyCE31IxjbtRxbpMZCmneZCasGZBerZAOHWNdcyGZC1WTXzD2MrxF9sA50pZAjNf3RrcFKVpuuXsYrxJNHEBBuvic1xu9MV6lp3OyYPs0IHzAXEGBdcOHZCXLFf1RUS23ZBsc2gXCrwZD');
+(1, 'krishnancmf8@gmail.com', 'CAACEdEose0cBAE7jD2CdffHkZANoZAeeYiYkgDu0SZBL0zVaqZAAqTGWXmn3ruOa41Skz7YSsgNZA49IFxvXIZAxx6tqdIGkHZBVLKIDKRuuLZBIfZAGJcYDIn8ZCK5nxyDNXUGPXI0atGK9JR1XW7r2rMy1C5eiVyUFqrA3pcMCV6JjEWZAJWuRPn3qSNuPBTBTDNoTmiOBfY6haZBZBBWg66F6y');
 
 -- --------------------------------------------------------
 
@@ -157,8 +157,7 @@ INSERT INTO `news_feeds` (`feed_id`, `name`, `url`, `facebook_page_id`) VALUES
 CREATE TABLE IF NOT EXISTS `news_social_score_active` (
   `normalized_score` float NOT NULL,
   `story_id` int(10) unsigned NOT NULL,
-  `raw_score` int(11) NOT NULL,
-  UNIQUE KEY `story_id` (`story_id`)
+  `raw_score` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- --------------------------------------------------------
@@ -172,9 +171,10 @@ CREATE TABLE IF NOT EXISTS `news_social_score_all` (
   `created` int(11) NOT NULL,
   `last_update` int(11) NOT NULL DEFAULT '0',
   `raw_score` int(11) NOT NULL DEFAULT '0',
+  `prev_peak_score` int(11) NOT NULL DEFAULT '0',
   `peak_score` int(11) NOT NULL DEFAULT '0',
   `total_shares` int(11) NOT NULL DEFAULT '0',
-  `reflected_in_stats` tinyint(1) DEFAULT '0',
+  `reflected_in_stats` enum('NEVER','OUTDATED','UPTODATE') DEFAULT 'NEVER',
   PRIMARY KEY (`story_id`),
   KEY `reflected_in_stats` (`reflected_in_stats`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -187,8 +187,8 @@ CREATE TABLE IF NOT EXISTS `news_social_score_all` (
 
 CREATE TABLE IF NOT EXISTS `news_social_score_feed_statistics` (
   `feed_id` int(10) unsigned NOT NULL,
-  `average_peak_score` float NOT NULL DEFAULT '0',
-  `std_deviation` float NOT NULL DEFAULT '0',
+  `sum_x` bigint(20) NOT NULL DEFAULT '0',
+  `sum_x2` bigint(20) NOT NULL DEFAULT '0',
   `feed_n` int(10) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`feed_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -285,6 +285,26 @@ CREATE TABLE IF NOT EXISTS `news_user_interests_read_count` (
   PRIMARY KEY (`row_id`),
   UNIQUE KEY `user_category` (`user_id`,`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE IF NOT EXISTS `users` (
+  `user_id` int(11) NOT NULL,
+  `email` varchar(200) DEFAULT NULL,
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`user_id`, `email`) VALUES
+(1, 'krishnancmf8@gmail.com');
 
 --
 -- Constraints for dumped tables

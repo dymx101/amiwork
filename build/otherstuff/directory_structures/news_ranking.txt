@@ -1,6 +1,0 @@
-/
-/news
-	/ranking
-			/classes
-				/scrapers
-				/scoringmodels

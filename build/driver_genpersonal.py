@@ -1,7 +1,7 @@
 from personalize import get_personal_recos
 from databaseinterface.databaseinterface import DatabaseInterface
 from mail import mail
-
+from mailsimple import mail_text
 import time
 
 #try:
@@ -72,7 +72,7 @@ except Exception as e:
 
 print "Task completed successfully"
 report_to_email = 'krishnancmf8@gmail.com'
-report =  ("Recommendations were completed for timesig %s, It took %s time " % (str(timesig), str( (time.time()-timesig) ) ) )
-mail(report_to_email,report, report, None)
 
-	
+subject = 'Cron job success: Personal recommendations successfully sent'
+report =  ("Recommendations were completed for timesig %s, It took %s time " % (str(timesig), str( (time.time()-timesig) ) ) )
+mail_text(report_to_email, subject, report )
