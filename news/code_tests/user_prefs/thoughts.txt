@@ -1,0 +1,37 @@
+When computing interest in a category, do something like:
+	interest = range_normalize((1+log10( read_count ))) 				#Range normalize is for convenience. There's actually no normalization across channels to be done like in social_score
+		( or rather interest = range_normalize((1+log10( 1+ read_count ))) 	so that we don't have a problem with 0s )
+	read_count can be something related to the minutes spent on a category
+	
+When setting initial weights, Try setting the initial read count?
+	Just set the read_count to 40 ( where the base read_count could be 10, All this 40 because it's 4*10 and you don't want interests changing too quickly now, do you? So give existing things some weight)
+	This is to give it an initial interest weightage of 1.5. For a weightage w, pick the number 10^w as read_count
+
+
+Categories:
+	Keep a read_count
+	Keep a category level
+	Keep the ability to query a subset of categories only
+	Compute relative score ( relative to all categories specified ( or all categories specified in that level )
+	Index user_id, category_id
+	
+	
+DO INTEREST CACHING?
+	I think eventually you'll need to do this. Using a separate table and stuff.
+	
+	
+Personalized score:
+	article_score + Product_over_categories(1 + interest)	= Favours multiple categories way too much
+	article_score + Product_over_categories( 1 + (interest/2) ) = Still does favour multiple categories
+	article_score +Geometric mean( 1+interest ) = Would dominate if there was one generic category which matched.
+	article_score +(Product_over_categories(1+ (interest/2))) ^ (1/min(1,#categories-1))
+	article_score +Anything other than 1+ = A rare topic would absolutely kill the score
+	
+	article_score * (Geometric_mean(1+interests)-1)
+	article_score * max(interests)
+	
+	
+	
+	NOPE!
+	STANDARD NORMAL!!! VIEW THE REPORT. You add a number ot the score so that at any score, the distribution of articles reflect the interests.
+	The number ot add is A = -X +/- root( X^2 + ln(Ic) )

@@ -1,0 +1,9 @@
+reddit http://reddit.com/abov_av 600
+reddit http://reddit.com/high 900
+reddit http://reddit.com/low 300
+9gag http://9gag.com/below_av 800
+9gag http://9gag.com/av 1000
+9gag http://9gag.com/bit_high 1200
+news http://news.org/nobody_cares 30
+news http://news.org/important 300
+news http://news.org/scandalous	600

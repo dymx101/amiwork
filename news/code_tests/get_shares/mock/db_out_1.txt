@@ -1,0 +1,12 @@
+news	http://news.org/scandalous	450	1432991453	1432989700	17.5
+news	http://news.org/av	120	1432991453	1432989700	1.0
+news	http://news.org/high	200	1432991453	1432989700	5.0
+reddit	http://reddit.com/low	405	1432991453	1432989700	-0.76
+9gag	http://9gag.com/high	1600	1432991453	1432989700	1.5
+news	http://news.org/low	120	1432991453	1432989700	1.0
+9gag	http://9gag.com/low	800	1432991453	1432989700	-0.5
+news	http://news.org/abov_av	140	1432991453	1432989700	2.0
+reddit	http://reddit.com/abov_av	610	1432991453	1432989700	0.88
+9gag	http://9gag.com/abov_av	1200	1432991453	1432989700	0.5
+reddit	http://reddit.com/high	840	1432991453	1432989700	2.72
+9gag	http://9gag.com/av	1000	1432991453	1432989700	0.0

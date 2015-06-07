@@ -1,0 +1,15 @@
+LOCK update_table
+	TRUNCATE update_table
+	
+	in sets of N, move from target_set to update_table
+	in sets of N, update share count FROM open graph
+	in sets of N, compute the updated score and normalized scores
+	CREATE rotate table
+	in sets of N, SELECT the top scorers and place them in rotate table
+	rotate tables
+	Update peak_score of all the stories into the global table.
+	Delete rows which made it. You only have pruned stories remaining.
+	update statistics using the peak scores of the stories being pruned
+		Recompute the average for each feed for the stories where peak_score changed.
+	
+UNLOCK update_table

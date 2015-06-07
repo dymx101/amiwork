@@ -1,0 +1,5 @@
+from facebookpagelikescraper import FacebookPageLikeScraper as FPLS
+user_access_token = 'CAACEdEose0cBAFyFoxGJcX5sNpACGbJTlO4o2Hm9pT352tRQYSwzRJmklNZCx8KLVpKnZCmsTqOGzRi6BodWGPfQOxXeqVabMsmNhfQwfnKQLP7qYuJsHylxEh9EkWGM6MupZAJFYaKMmYdHhGiHPtPX1citMYgSnV53y4zI67BEUg8WBe1iIrffO2iVooaZAeL1UCeJyWGxc7R0r7ZBZBHYiO3YXrFMAZD'
+fpls = FPLS(user_access_token)
+fpls.load_feed_ids()
+print fpls.get_liked_feed_ids()

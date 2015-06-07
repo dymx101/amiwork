@@ -1,0 +1,123 @@
+import time,math
+from databaseinterface.databaseinterface import DatabaseInterface
+from localconfig import LocalConfig
+class UserCategoryInterests:
+	''' This class does not consider levels or parents while computing interests. it is completely oblivious '''
+	''' ------------------ Static vars ----------------------- '''
+	base_read_count = LocalConfig.usercategoryinterests_base_read_count 
+	''' ------------------- Subclasses ----------------------- '''
+	class CategoryInterest:
+		def __init__(self,category_id, read_count, unnormalized_interest=None, interest= None):
+			self.category_id = category_id
+			self.read_count = read_count
+			self.unnormalized_interest = unnormalized_interest
+			self.interest = interest
+			self.max_unnormalized = None
+		
+		def __repr__(self):
+			return vars(self).__repr__()
+	''' ------------------- end subclasses --------------------'''
+	
+	def __init__(self,user_id):
+		self.user_id = user_id
+		self.categories = None	# Dict { category_id: CategoryInterest object [,...] }
+	
+	
+	''' UPDATING INTERESTS '''
+	def add_read_count(self,read_count,category_ids):	#Seems to work
+		''' Increment the read count of each of the category_ids specified by read_count '''
+		dbi = DatabaseInterface.get_shared_instance()
+		dbi.autocommit(False)
+		
+		for category_id in category_ids:
+			dbi.execute("\
+				INSERT INTO news_user_interests_read_count (user_id,category_id,read_count) VALUES( %s,%s, %s )\
+				ON DUPLICATE KEY UPDATE read_count= read_count+%s\
+				", ( self.user_id, category_id, read_count, read_count )
+			)
+		dbi.commit()
+		
+		dbi.autocommit(True)
+	
+	
+	''' READING INTERESTS '''
+	
+	
+	def get_interest(self,category_id):	
+		if category_id in self.categories:
+			return self.categories[category_id].interest
+		else:
+			return float(1)/self.max_unnormalized
+	
+	def get_unnormalized_interest(self,category_id):
+		if category_id in self.categories:
+			return self.categories[category_id].unnormalized_interest
+	
+	
+	def get_category_interests(self):
+		''' After you call load_category_interest, Call this method to get a dict of the form {category_id: interest}'''
+		interest = dict()
+		for category_id in self.categories:
+			interest[category_id] = self.categories[category_id].interest
+		
+		return interest
+	
+	
+	def load_category_interests(self):
+		''' Loads the interest in all categories of the user_specified '''
+		self.categories = dict()
+		dbi = DatabaseInterface.get_shared_instance()
+		cursor = dbi.execute("SELECT category_id,read_count FROM news_user_interests_read_count where user_id=%s",(self.user_id,))
+		rows = cursor.fetchall()
+		
+		self._process_db_rows(rows)
+		self._compute_interests()
+		
+		return self.categories
+	
+	def _process_db_rows(self,rows):
+		for row in rows:
+			if row['category_id'] in self.categories:
+				continue
+			else:
+				self.categories[row['category_id']] = self.CategoryInterest(row['category_id'], row['read_count'] )
+		
+	''' Calculating functions '''
+	
+	def _compute_interests(self):
+		''' Computes the normalized interest, which is range_normalize( math.log( base+read_count,base ) )  )  ( where range_normalize brings values to the range [0,1] ) '''
+		for category_id in self.categories:
+			item = self.categories[category_id]
+			print item.read_count
+			item.unnormalized_interest = self._compute_unnormalized_interest( item.read_count )
+			
+		return self._normalize_all()
+	
+	def _compute_unnormalized_interest(self,read_count):
+		''' Returns math.log( base+read_count,base)  which is the unnormalized interest ( for now ) '''
+		return math.log( self.base_read_count + read_count , self.base_read_count) 
+	
+	def _normalize_all(self):
+		''' Normalizes all interests ( self.categories[i].interest) to the range 0-1 
+				interest = (item.unnormalized_interest / max_unnormalized_interest)
+			Hence, 0 is assigned to read_count=0, 1 is assigned to the highest read_count and '''
+		max_unnormalized = 0
+		min_unnormalized = None
+		for category in self.categories:
+			item = self.categories[category]
+			if min_unnormalized is None:
+				min_unnormalized = item.unnormalized_interest
+			else:
+				min_unnormalized = min(min_unnormalized, item.unnormalized_interest)
+			max_unnormalized = max( max_unnormalized , item.unnormalized_interest )
+		
+		for category in self.categories:
+			item = self.categories[category]
+			item.interest =  float(item.unnormalized_interest) / (max_unnormalized)
+		
+		self.max_interest = 1
+		if min_unnormalized is None:
+			min_unnormalized = 1
+		self.min_interest = float(min_unnormalized) / max_unnormalized
+		self.max_unnormalized = max_unnormalized
+	

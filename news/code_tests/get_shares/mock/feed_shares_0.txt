@@ -1,0 +1,12 @@
+reddit	http://reddit.com/abov_av	600	1432989700	1432989700
+reddit	http://reddit.com/high	800	1432989700	1432989700
+reddit	http://reddit.com/low	400	1432989700	1432989700
+9gag	http://9gag.com/low	800	1432989700	1432989700
+9gag	http://9gag.com/av	1000	1432989700	1432989700
+9gag	http://9gag.com/abov_av	1200	1432989700	1432989700
+9gag	http://9gag.com/high	1600	1432989700	1432989700
+news	http://news.org/low	80	1432989700	1432989700
+news	http://news.org/av	100	1432989700	1432989700
+news	http://news.org/abov_av	120	1432989700	1432989700
+news	http://news.org/high	160	1432989700	1432989700
+news	http://news.org/scandalous	350	1432989700	1432989700

@@ -1,0 +1,12 @@
+reddit	http://reddit.com/abov_av	600
+reddit	http://reddit.com/high	800
+reddit	http://reddit.com/low	400
+9gag	http://9gag.com/low	800
+9gag	http://9gag.com/av	1000
+9gag	http://9gag.com/abov_av	1200
+9gag	http://9gag.com/high	1600
+news	http://news.org/low	80
+news	http://news.org/av	100
+news	http://news.org/abov_av	120
+news	http://news.org/high	160
+news	http://news.org/scandalous	350

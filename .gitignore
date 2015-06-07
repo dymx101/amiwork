@@ -1,0 +1,4 @@
+**/*.out
+music/code_tests/test/**/*
+**/*.pyc
+**/output/*
