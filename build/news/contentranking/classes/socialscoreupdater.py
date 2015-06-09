@@ -49,24 +49,6 @@ class SocialScoreUpdater:
 		dbi.execute("INSERT INTO news_social_score_active ( normalized_score, story_id, raw_score ) (SELECT 0,story_id,0 FROM news_stories WHERE story_id=%s)", (story_id,))
 		cursor = dbi.execute("SELECT feed_id,sum_x,sum_x2,feed_n FROM news_social_score_feed_statistics JOIN news_stories USING(feed_id) WHERE story_id=%s", (story_id,) )
 
-		if cursor.rowcount>0:
-			row = cursor.fetchone()
-			feed_id=row['feed_id']
-			new_n = row['feed_n'] + 1
-			new_x = row['sum_x']
-			new_x2 = row['sum_x2']
-			
-			if new_n > SocialScoreUpdater.stat_update_upper:	
-				'''THIS CAN ACTUALLY HAPPEN DESPITE ME NOT INCREMENTING FEED_N. feed_n < stat_update_upper IS NOT AN INVARIANT! 
-				feed_n is incremented when a story is added to the set'''
-				scale = (float(stat_update_lower)/new_n)
-				new_n = stat_update_lower #(stat_update_lower/new_n)	* new_n
-				new_x =  scale * new_x
-				new_x2 = scale * new_x2
-				dbi.execute("UPDATE news_social_score_feed_statistics SET sum_x=%s, sum_x2=%s, feed_n=%s WHERE feed_id=%s", (new_x,new_x2,new_n,feed_id))
-			else:
-				dbi.execute("UPDATE news_social_score_feed_statistics SET feed_n=feed_n+1 WHERE feed_id = %s",(feed_id,) )
-		
 		dbi.commit()
 		dbi.autocommit(True)
 		
@@ -291,10 +273,24 @@ class SocialScoreUpdater:
 			dbi.execute('UPDATE news_social_score_feed_statistics SET sum_x=sum_x+%s,sum_x2=sum_x2+%s WHERE feed_id=%s', update_params)
 			
 		dbi.execute("UPDATE news_social_score_all SET reflected_in_stats='UPTODATE' WHERE reflected_in_stats!='UPTODATE'",None)
+		
+		''' Finally, do the scaling so that newer articles have more weightage. This isn't critical so we don't need autocommit off ) '''
+		
+		stat_update_lower = SocialScoreUpdater.stat_update_lower
+		stat_update_upper = SocialScoreUpdater.stat_update_upper
+		cursor = dbi.execute("SELECT feed_id,sum_x,sum_x2,feed_n FROM news_social_score_feed_statistics WHERE feed_n>%s",(stat_update_upper,));
+		rows = cursor.fetchall()
+		for row in rows:
+			feed_id=row['feed_id']
+			scale = (float(stat_update_lower)/row['feed_n'])
+			new_x = scale * row['sum_x']
+			new_x2 =scale * row['sum_x2']
+			new_n = stat_update_lower # = scale * row['feed_n']
+			
+			dbi.execute("UPDATE news_social_score_feed_statistics SET sum_x=%s, sum_x2=%s, feed_n=%s WHERE feed_id=%s", (new_x,new_x2,new_n,feed_id))
+			
 		dbi.commit()
 		dbi.autocommit(True)
-		
-		
 	
 	
 	def _load_feed_statistics(self):
@@ -312,11 +308,12 @@ class SocialScoreUpdater:
 		std_dev_sum = float(0)
 		i = 0
 		for row in dbcursor.fetchall():
+			feed_id = int(row["feed_id"])
 			E_x = float(row['sum_x'])/row['feed_n']
 			E_x2 = float(row['sum_x2'])/row['feed_n']
 			std_dev = math.sqrt(E_x2 - (E_x*E_x))
 			
-			self._feed_statistics[row["feed_id"]] = (E_x,std_dev )
+			self._feed_statistics[feed_id] = (E_x,std_dev )
 			avg_sum += E_x
 			std_dev_sum += (float(std_dev)/max(1,E_x))
 			i+=1
@@ -370,11 +367,12 @@ class SocialScoreUpdater:
 		return (score - feed_avg)/feed_std_dev
 	
 	def _get_feed_statistics(self,feed_id):
+		feed_id = int(feed_id)
 		''' returns average_peak_score,std_deviation of the feed_id passed. 
 		If we have no stats for the passed feed_ids, the global average is passed '''
 		if self._feed_statistics is None:
 			self._load_feed_statistics()
 			
-		stats = self._feed_statistics[0]	#Not much we can do, return global stats
+		stats = self._feed_statistics[feed_id]	#Not much we can do, return global stats
 		return stats[0], stats[1]
 	

@@ -3,12 +3,20 @@ from news.contentranking.classes.scrapers.facebookpagelikescraper import Faceboo
 from databaseinterface.databaseinterface import DatabaseInterface
 
 from news.contentranking.classes.localconfig import LocalConfig as ContentRankingConfig
+import sys
 
 dbi = DatabaseInterface.get_shared_instance()
 
-cursor = dbi.execute("SELECT user_id,email,access_token FROM first_test_users ",None)
+rows = list()
+if len(sys.argv)<2:
+	cursor = dbi.execute("SELECT user_id,email,access_token FROM first_test_users ",None)
+else:
+	user_id = sys.argv[1]
+	cursor = dbi.execute("SELECT user_id,email,access_token FROM first_test_users WHERE user_id=%s",(user_id,))
 rows = cursor.fetchall()
+
 for row in rows:
+	
 	user_id = row['user_id']
 	user_access_token = row['access_token']
 	fpls = FPLS(user_access_token)
@@ -21,6 +29,7 @@ for row in rows:
 	dbi = DatabaseInterface.get_shared_instance()
 	categories_liked = dict()
 	total_likes = 0
+	print user_id, ": ",liked_feed_ids
 	for feed_id in liked_feed_ids:
 		cursor = dbi.execute( "SELECT category_id FROM first_test_feed_category WHERE feed_id=%s", (feed_id,) )
 		for rows in cursor.fetchall():
