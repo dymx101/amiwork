@@ -3,3 +3,5 @@ music/code_tests/test/**/*
 **/*.pyc
 **/output/*
 **/dump/**
+**/*.log
+**/backups/**

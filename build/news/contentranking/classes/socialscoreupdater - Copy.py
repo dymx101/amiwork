@@ -357,7 +357,7 @@ class SocialScoreUpdater:
 		''' ---------------------------------------------------------------------------------------------------------------------------------- '''	
 		return shares_since + max(0,_pseudo_exponential_decay_score(old_score,time_elapsed,life_factor))		# The -1 is important so that we never stagnate
 		
-	
+	"""
 	def _normalize_across_feeds(self,score,feed_id):
 		''' returns the standard_score of the content. feed_id is the feed that the article belongs to.
 			Standard score = ( this.deviation / this.field.std_deviation )
@@ -367,8 +367,8 @@ class SocialScoreUpdater:
 			feed_std_dev = 1	#Can't risk a divide by 0 killing my script
 			
 		return (score - feed_avg)/feed_std_dev
-	
 	"""	
+
 	def _normalize_across_feeds(self,score,feed_id):
 		''' Tries to standardize this into an exponential distribution of lambda=1 by dividing with X' ( the mean ). Frequency distribution after normalization is feed_n * exp(-X)'''
 		feed_avg,feed_std_dev = self._get_feed_statistics(feed_id)
@@ -377,7 +377,6 @@ class SocialScoreUpdater:
 		if feed_std_dev == 0:
 			feed_std_dev = 1
 		return (score/feed_avg)	#For exponential distribution assumption
-	"""
 	
 	def _get_feed_statistics(self,feed_id):
 		feed_id = int(feed_id)

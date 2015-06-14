@@ -17,12 +17,13 @@ def get_personal_recos(user_id):
 
 	''' --------- MAIN -----'''
 	ui = UserCategoryInterests(user_id)
-	#ui.add_read_count( 1, [3] )
+	
 	ui.load_category_interests()
-
+	
 	#Load ALL stories with the normalized score 
 	dbi = DatabaseInterface.get_shared_instance()
 	cursor = dbi.execute("SELECT * FROM news_stories JOIN news_social_score_active USING(story_id)", None)
+	
 	rows = cursor.fetchall()
 	content = []
 	seen_categories= dict()
@@ -40,7 +41,7 @@ def get_personal_recos(user_id):
 	for category_id in seen_categories:
 		interests[category_id] = ui.get_interest(category_id)
 
-
+	#print ("User_id %s has interests: "%(user_id,)), interests
 	pscore = PersonalizedScore()
 	pscore.set_data(content,interests)
 	pscore.personalize_scores()

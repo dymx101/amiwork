@@ -64,7 +64,8 @@ class OpenGraphShareScraper:
 			for single_request_response in batch_response:	
 				body = json.loads(single_request_response["body"])
 				for url_key in body:
-					self.og_shares[body[url_key]["id"]] = body[url_key]["share"]["share_count"]
+					if "share" in body[url_key]:
+						self.og_shares[body[url_key]["id"]] = body[url_key]["share"]["share_count"]
 				
 		
 		return self.og_shares

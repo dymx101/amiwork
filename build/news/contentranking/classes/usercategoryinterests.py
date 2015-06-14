@@ -47,6 +47,18 @@ class UserCategoryInterests:
 		else:
 			return 1
 	
+	def get_combined_interest(self,categories):
+		''' Not thoroughly thought through >.< 
+		Currently returns the interest(sum_over_categories(read_count))
+		'''
+		total_read_count = 0
+		for category_id in categories:
+			if category_id in self.categories:
+				total_read_count += self.categories[category_id]
+		
+		return self._compute_interest(total_read_count)	
+		
+	
 	def get_category_interests(self):
 		''' After you call load_category_interest, Call this method to get a dict of the form {category_id: interest}'''
 		interest = dict()

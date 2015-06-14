@@ -1,6 +1,7 @@
 from databaseinterface.databaseinterface import DatabaseInterface
 from usercategoryinterests import UserCategoryInterests
 from news.models.newsstory import NewsStory									#This line isn't needed in python but i'm leaving it here anyway
+#from news.contentranking.classes.localconfig import LocalConfig 
 from .localconfig import LocalConfig 
 from math import sqrt,log as log,log as ln
 
@@ -21,7 +22,6 @@ class PersonalizedScore:
 		self._compute_feed_sizes()
 	
 	def personalize_scores(self):
-		''' Although this assumes exponential distribution, it works surprisingly well for stdnormal too. I'll do it properly with erf later '''
 		'''-----------------------------------------'''
 		def K(feed_size,interest):
 			scale_point = float(self.personalization_scale_point)
@@ -43,6 +43,19 @@ class PersonalizedScore:
 			
 			content.score /= K(feed_size,overall_interest)
 		
+	"""	
+	def personalize_scores(self):
+		'''-----------------------------------------'''
+		def A(X,Ic):
+			if X<0:
+				X *= -1
+			return -X + sqrt( (X**2) + 2*ln(Ic) )
+		'''-----------------------------------------'''	
+		for content in self.content:
+			overall_interest = self._compute_overall_interest(content.categories)
+			content.score += A( content.score ,  overall_interest )
+		
+	"""
 	def _compute_overall_interest(self,categories):
 		''' REVISE THIS! IT IS SILLY! '''
 		max_interest = 1
