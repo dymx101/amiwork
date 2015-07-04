@@ -4,5 +4,5 @@ class GlobalConfig:
 	mysql_database= "ami_news"
 	mysql_host= 'localhost'
 	
-	facebook_app_token = "494994220569217|1OG6YypCV2pM3dIlAGOZdCM1TI0"	# Used for scraping and so on
+	facebook_app_token = "XXXXXXXXXXXXXXXXXXXX"	# Used for scraping and so on
 	
